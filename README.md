@@ -1,6 +1,6 @@
 # EduTech Impact - Social Development Events Platform
 
-**Live Website Link:** [Insert Your Vercel Live Link Here]
+**Live Website Link:** [ https://edutech-server-1ad7.vercel.app/ ]
 
 ## 🌟 Project Overview
 
