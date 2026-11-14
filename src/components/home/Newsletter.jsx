@@ -13,21 +13,20 @@ export default function Newsletter() {
       toast.error("Please enter a valid email address!");
       return;
     }
-    toast.success("Subscribed successfully to EduTech Impact alerts!");
-    setEmail("");
+    toast("Newsletter signups are not connected yet.", { icon: "ℹ️" });
   };
 
   return (
     <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="relative rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-[#0b1320] to-slate-900 p-8 sm:p-12 lg:p-16 overflow-hidden shadow-2xl">
+      <div className="relative rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-cyan-100 via-sky-50 to-indigo-100 dark:from-slate-900 dark:via-[#0b1320] dark:to-slate-900 p-8 sm:p-12 lg:p-16 overflow-hidden shadow-2xl">
         <div className="max-w-2xl mx-auto text-center space-y-6 relative z-10">
           <span className="text-xs font-bold uppercase tracking-widest text-[#00f2fe]">
             Stay Connected
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">
             Get Weekly Impact & Event Alerts
           </h2>
-          <p className="text-slate-300 text-sm sm:text-base">
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base">
             Subscribe to our newsletter to receive updates on upcoming free tech workshops, volunteer drives, and social development events in your area.
           </p>
 
@@ -37,7 +36,7 @@ export default function Newsletter() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email address..."
-              className="flex-1 px-4 py-3.5 rounded-xl bg-slate-950/90 border border-cyan-500/30 text-white placeholder-slate-400 text-sm focus:outline-none focus:border-[#00f2fe]"
+              className="flex-1 px-4 py-3.5 rounded-xl bg-white dark:bg-slate-950/90 border border-cyan-500/30 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 text-sm focus:outline-none focus:border-[#00f2fe]"
               required
             />
             <button

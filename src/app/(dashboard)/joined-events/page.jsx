@@ -1,11 +1,11 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/app/providers/Providers";
-import { getStoredJoinedEvents } from "@/lib/axios";
+import { getJoinedEvents } from "@/lib/axios";
+import toast from "react-hot-toast";
 import {
   FiCalendar,
   FiMapPin,
@@ -25,20 +25,22 @@ export default function JoinedEventsPage() {
     }
 
     if (user) {
-      const timer = setTimeout(() => {
-        const allJoined = getStoredJoinedEvents();
-        // ইউজারের জয়েন করা ইভেন্টগুলো তারিখ অনুযায়ী সাজানো (Sorted by eventDate)
-        const userJoined = allJoined
-          .filter(
-            (item) =>
-              item.userEmail?.toLowerCase() === user.email?.toLowerCase(),
-          )
-          .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+      let active = true;
+      getJoinedEvents()
+        .then((events) => {
+          if (active) setJoinedEvents(events);
+        })
+        .catch((error) => {
+          if (active) {
+            toast.error(
+              error.response?.data?.error || "Unable to load your joined events.",
+            );
+          }
+        });
 
-        setJoinedEvents(userJoined);
-      }, 0);
-
-      return () => clearTimeout(timer);
+      return () => {
+        active = false;
+      };
     }
   }, [user, authLoading, router]);
 

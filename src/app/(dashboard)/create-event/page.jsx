@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/app/providers/Providers";
-import { getStoredEvents, saveStoredEvents } from "@/lib/axios";
+import { createEvent } from "@/lib/axios";
+import { getNextEventDate } from "@/lib/event-dates";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
@@ -32,7 +33,7 @@ export default function CreateEventPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!user) {
@@ -41,22 +42,24 @@ export default function CreateEventPage() {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    if (form.eventDate < today) {
+    const todayInDhaka = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+    }).format(new Date());
+    if (form.eventDate <= todayInDhaka) {
       toast.error(
-        "Event date must be in the future! Past dates are not allowed.",
+        "Choose a future event date. Today and past dates are not allowed.",
       );
       return;
     }
 
-    const newEvent = {
-      _id: "evt-" + Date.now(),
-      ...form,
-      creatorEmail: user.email,
-    };
-
-    const existingEvents = getStoredEvents();
-    saveStoredEvents([newEvent, ...existingEvents]);
+    try {
+      await createEvent(form);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.error || "Unable to create the event.",
+      );
+      return;
+    }
 
     Swal.fire({
       title: "Event Created Successfully!",
@@ -136,6 +139,7 @@ export default function CreateEventPage() {
                   type="date"
                   name="eventDate"
                   required
+                  min={getNextEventDate()}
                   value={form.eventDate}
                   onChange={handleChange}
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-[#00f2fe]"
@@ -154,6 +158,7 @@ export default function CreateEventPage() {
                 type="url"
                 name="thumbnail"
                 required
+                pattern="https?://.+"
                 value={form.thumbnail}
                 onChange={handleChange}
                 placeholder="https://images.unsplash.com/photo-..."

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useApp } from "@/app/providers/Providers";
-import { getStoredEvents, saveStoredEvents } from "@/lib/axios";
+import { getEvent, updateEvent } from "@/lib/axios";
+import { getNextEventDate } from "@/lib/event-dates";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
@@ -37,42 +38,51 @@ export default function EditEventPage() {
       return;
     }
 
-    const timer = setTimeout(() => {
-      const allEvents = getStoredEvents();
-      const found = allEvents.find((ev) => String(ev._id) === String(id));
-      if (!found) {
-        toast.error("Event not found!");
-        router.push("/manage-events");
-        return;
-      }
+    let active = true;
+    getEvent(id)
+      .then((found) => {
+        if (!active) return;
 
-      if (
-        user &&
-        found.creatorEmail?.toLowerCase() !== user.email?.toLowerCase()
-      ) {
-        toast.error("You can only edit your own created events!");
-        router.push("/manage-events");
-        return;
-      }
+        if (!found) {
+          toast.error("Event not found!");
+          router.push("/manage-events");
+          return;
+        }
 
-      setForm({
-        title: found.title || "",
-        description: found.description || "",
-        eventType: found.eventType || "Education",
-        thumbnail: found.thumbnail || "",
-        location: found.location || "",
-        eventDate: found.eventDate || "",
+        if (
+          user &&
+          found.creatorEmail?.toLowerCase() !== user.email?.toLowerCase()
+        ) {
+          toast.error("You can only edit your own created events!");
+          router.push("/manage-events");
+          return;
+        }
+
+        setForm({
+          title: found.title || "",
+          description: found.description || "",
+          eventType: found.eventType || "Education",
+          thumbnail: found.thumbnail || "",
+          location: found.location || "",
+          eventDate: found.eventDate || "",
+        });
+      })
+      .catch((error) => {
+        if (!active) return;
+        toast.error(error.response?.data?.error || "Unable to load this event.");
+        router.push("/manage-events");
       });
-    }, 0);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+    };
   }, [id, user, authLoading, router]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleUpdate = (e) => {
+  const handleUpdate = async (e) => {
     e.preventDefault();
 
     if (
@@ -84,18 +94,20 @@ export default function EditEventPage() {
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    if (form.eventDate < today) {
-      toast.error("Event date must be in the future!");
+    const todayInDhaka = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+    }).format(new Date());
+    if (form.eventDate <= todayInDhaka) {
+      toast.error("Choose a future event date. Today and past dates are not allowed.");
       return;
     }
 
-    const allEvents = getStoredEvents();
-    const updatedList = allEvents.map((ev) =>
-      String(ev._id) === String(id) ? { ...ev, ...form } : ev,
-    );
-
-    saveStoredEvents(updatedList);
+    try {
+      await updateEvent(id, form);
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Unable to update this event.");
+      return;
+    }
 
     Swal.fire({
       title: "Event Updated!",
@@ -181,6 +193,7 @@ export default function EditEventPage() {
                   type="date"
                   name="eventDate"
                   required
+                  min={getNextEventDate()}
                   value={form.eventDate}
                   onChange={handleChange}
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-[#00f2fe]"
@@ -199,6 +212,7 @@ export default function EditEventPage() {
                 type="url"
                 name="thumbnail"
                 required
+                pattern="https?://.+"
                 value={form.thumbnail}
                 onChange={handleChange}
                 className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-[#00f2fe]"

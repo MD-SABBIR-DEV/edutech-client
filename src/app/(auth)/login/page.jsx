@@ -3,9 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/app/providers/Providers";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 import {
   FiMail,
   FiLock,
@@ -20,7 +18,6 @@ import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginUser } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -35,43 +32,26 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    try {
+      const { data, error } = await signIn.email({
+        email: email.trim(),
+        password,
+      });
 
-    setTimeout(() => {
-      const registeredUsers = JSON.parse(
-        localStorage.getItem("edutech_users") || "[]",
-      );
-      const matchedUser = registeredUsers.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase(),
-      );
-
-      if (matchedUser && matchedUser.password !== password) {
-        setLoading(false);
-        toast.error("Invalid password! Please try again.");
+      if (error) {
+        toast.error(error.message || "Invalid email or password.");
         return;
       }
 
-      const loggedUser = matchedUser || {
-        name: email.split("@")[0].replace(/[^a-zA-Z0-9]/g, " "),
-        email: email.trim(),
-        photoURL:
-          "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80",
-      };
-
-      localStorage.setItem("edutech-token", "jwt-token-" + Date.now());
-      loginUser(loggedUser);
-      setLoading(false);
-
-      Swal.fire({
-        title: "Welcome Back!",
-        text: `Logged in successfully as ${loggedUser.name}`,
-        icon: "success",
-        confirmButtonColor: "#00f2fe",
-        background: "#0d131f",
-        color: "#ffffff",
-      });
-
+      toast.success(`Welcome back, ${data?.user?.name || email.trim()}!`);
       router.push("/events");
-    }, 500);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Authentication Error!",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSocialLogin = async (provider) => {
@@ -88,7 +68,9 @@ export default function LoginPage() {
         );
       }
     } catch (error) {
-      toast.error("Authentication Error!");
+      toast.error(
+        error instanceof Error ? error.message : "Authentication Error!",
+      );
     } finally {
       setLoading(false);
     }

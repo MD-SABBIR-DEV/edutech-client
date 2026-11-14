@@ -1,11 +1,11 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/app/providers/Providers";
-import { getStoredEvents, saveStoredEvents } from "@/lib/axios";
+import { deleteEvent, getOwnedEvents } from "@/lib/axios";
+import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
   FiEdit3,
@@ -28,20 +28,27 @@ export default function ManageEventsPage() {
     }
 
     if (user) {
-      const timer = setTimeout(() => {
-        const allEvents = getStoredEvents();
-        const filtered = allEvents.filter(
-          (ev) => ev.creatorEmail?.toLowerCase() === user.email?.toLowerCase(),
-        );
-        setMyEvents(filtered);
-      }, 0);
+      let active = true;
+      getOwnedEvents()
+        .then((events) => {
+          if (active) setMyEvents(events);
+        })
+        .catch((error) => {
+          if (active) {
+            toast.error(
+              error.response?.data?.error || "Unable to load your events.",
+            );
+          }
+        });
 
-      return () => clearTimeout(timer);
+      return () => {
+        active = false;
+      };
     }
   }, [user, authLoading, router]);
 
-  const handleDelete = (id, title) => {
-    Swal.fire({
+  const handleDelete = async (id, title) => {
+    const result = await Swal.fire({
       title: "Delete this event?",
       text: `Are you sure you want to remove "${title}"?`,
       icon: "warning",
@@ -51,27 +58,26 @@ export default function ManageEventsPage() {
       confirmButtonText: "Yes, Delete",
       background: "#0d131f",
       color: "#ffffff",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        const allEvents = getStoredEvents();
-        const updatedAll = allEvents.filter(
-          (ev) => String(ev._id) !== String(id),
-        );
-        saveStoredEvents(updatedAll);
-        setMyEvents((prev) =>
-          prev.filter((ev) => String(ev._id) !== String(id)),
-        );
-
-        Swal.fire({
-          title: "Deleted!",
-          text: "Your event has been deleted successfully.",
-          icon: "success",
-          confirmButtonColor: "#00f2fe",
-          background: "#0d131f",
-          color: "#ffffff",
-        });
-      }
     });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await deleteEvent(id);
+      setMyEvents((prev) =>
+        prev.filter((event) => String(event._id) !== String(id)),
+      );
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Your event has been deleted successfully.",
+        icon: "success",
+        confirmButtonColor: "#00f2fe",
+        background: "#0d131f",
+        color: "#ffffff",
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Unable to delete this event.");
+    }
   };
 
   if (authLoading || !user) {

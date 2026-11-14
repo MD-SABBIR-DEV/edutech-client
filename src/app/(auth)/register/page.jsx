@@ -3,9 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useApp } from "@/app/providers/Providers";
 import toast from "react-hot-toast";
-import Swal from "sweetalert2";
 import {
   FiUser,
   FiMail,
@@ -16,10 +14,10 @@ import {
   FiEye,
   FiEyeOff,
 } from "react-icons/fi";
+import { signUp } from "@/lib/auth-client";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { loginUser } = useApp();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -28,12 +26,13 @@ export default function RegisterPage() {
     password: "",
   });
   const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     const { name, email, photoURL, password } = formData;
 
@@ -56,38 +55,29 @@ export default function RegisterPage() {
       return;
     }
 
-    const newUser = {
-      name: name.trim(),
-      email: email.trim(),
-      photoURL: photoURL.trim(),
-      password,
-    };
+    setLoading(true);
+    try {
+      const { error } = await signUp.email({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        image: photoURL.trim(),
+      });
 
-    const existingUsers = JSON.parse(
-      localStorage.getItem("edutech_users") || "[]",
-    );
-    localStorage.setItem(
-      "edutech_users",
-      JSON.stringify([...existingUsers, newUser]),
-    );
-    localStorage.setItem("edutech-token", "jwt-token-" + Date.now());
+      if (error) {
+        toast.error(error.message || "Unable to create your account.");
+        return;
+      }
 
-    loginUser({
-      name: newUser.name,
-      email: newUser.email,
-      photoURL: newUser.photoURL,
-    });
-
-    Swal.fire({
-      title: "Registration Complete!",
-      text: "Your EduTech Impact account has been created successfully.",
-      icon: "success",
-      confirmButtonColor: "#00f2fe",
-      background: "#0d131f",
-      color: "#ffffff",
-    });
-
-    router.push("/");
+      toast.success("Your EduTech Impact account has been created!");
+      router.push("/events");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Registration Error!",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -175,7 +165,7 @@ export default function RegisterPage() {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Min 6 chars, 1 uppercase, 1 lowercase"
+                placeholder="Min 6 characters, 1 uppercase, 1 lowercase"
                 className="w-full pl-11 pr-11 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-[#00f2fe]"
               />
               <button
@@ -197,9 +187,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:opacity-95 shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-2"
+            disabled={loading}
+            className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm text-slate-950 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:opacity-95 shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-2 disabled:opacity-70"
           >
-            <span>Create Account</span>
+            <span>{loading ? "Creating Account..." : "Create Account"}</span>
             <FiArrowRight className="w-4 h-4" />
           </button>
         </form>

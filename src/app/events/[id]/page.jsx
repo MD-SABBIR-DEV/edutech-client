@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,9 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useApp } from "@/app/providers/Providers";
 import {
-  getStoredEvents,
-  getStoredJoinedEvents,
-  saveStoredJoinedEvents,
+  getEvent,
+  getJoinedEvents,
+  joinEvent,
 } from "@/lib/axios";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -28,28 +27,56 @@ export default function EventDetailsPage() {
 
   const [event, setEvent] = useState(null);
   const [alreadyJoined, setAlreadyJoined] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const allEvents = getStoredEvents();
-      const found = allEvents.find((item) => String(item._id) === String(id));
-      setEvent(found || null);
+    let active = true;
+    setEvent(null);
+    setAlreadyJoined(false);
+    setLoading(true);
 
-      if (user && found) {
-        const joinedList = getStoredJoinedEvents();
-        const isJoined = joinedList.some(
-          (j) =>
-            String(j.eventId) === String(found._id) &&
-            j.userEmail === user.email,
-        );
-        setAlreadyJoined(isJoined);
-      }
-    }, 0);
+    getEvent(id)
+      .then((found) => {
+        if (!active) return;
+        setEvent(found);
 
-    return () => clearTimeout(timer);
+        if (user) {
+          getJoinedEvents()
+            .then((joinedEvents) => {
+              if (active) {
+                setAlreadyJoined(
+                  joinedEvents.some(
+                    (joined) => String(joined.eventId) === String(found._id),
+                  ),
+                );
+              }
+            })
+            .catch((error) => {
+              if (active) {
+                toast.error(
+                  error.response?.data?.error ||
+                    "Unable to check your event registration.",
+                );
+              }
+            });
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          toast.error(error.response?.data?.error || "Unable to load this event.");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [id, user]);
 
-  const handleJoinEvent = () => {
+  const handleJoinEvent = async () => {
     if (!user) {
       toast.error("Please login first to join this event!");
       router.push("/login");
@@ -61,40 +88,33 @@ export default function EventDetailsPage() {
       return;
     }
 
-    const joinedList = getStoredJoinedEvents();
-    const newJoinRecord = {
-      _id: "join-" + Date.now(),
-      eventId: event._id,
-      title: event.title,
-      description: event.description,
-      eventType: event.eventType,
-      thumbnail: event.thumbnail,
-      location: event.location,
-      eventDate: event.eventDate,
-      creatorEmail: event.creatorEmail,
-      userEmail: user.email,
-      userName: user.name,
-      joinedAt: new Date().toISOString(),
-    };
+    setJoining(true);
+    try {
+      await joinEvent({
+        eventId: event._id,
+      });
+      setAlreadyJoined(true);
 
-    saveStoredJoinedEvents([...joinedList, newJoinRecord]);
-    setAlreadyJoined(true);
-
-    Swal.fire({
-      title: "Successfully Joined!",
-      text: `You are now registered as a volunteer for "${event.title}".`,
-      icon: "success",
-      confirmButtonColor: "#00f2fe",
-      background: "#0d131f",
-      color: "#ffffff",
-    });
+      await Swal.fire({
+        title: "Successfully Joined!",
+        text: `You are now registered as a volunteer for "${event.title}".`,
+        icon: "success",
+        confirmButtonColor: "#00f2fe",
+        background: "#0d131f",
+        color: "#ffffff",
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Unable to join this event.");
+    } finally {
+      setJoining(false);
+    }
   };
 
-  if (!event) {
+  if (loading || !event) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-          Event Details Loading or Not Found
+          {loading ? "Loading event details..." : "Event not found"}
         </h2>
         <Link
           href="/events"
@@ -191,7 +211,7 @@ export default function EventDetailsPage() {
             <button
               type="button"
               onClick={handleJoinEvent}
-              disabled={alreadyJoined}
+              disabled={alreadyJoined || joining}
               className={`w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 alreadyJoined
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-not-allowed"
@@ -200,7 +220,11 @@ export default function EventDetailsPage() {
             >
               <FiCheckCircle className="w-4 h-4" />
               <span>
-                {alreadyJoined ? "Already Joined Event" : "Join Event"}
+                {alreadyJoined
+                  ? "Already Joined Event"
+                  : joining
+                    ? "Joining..."
+                    : "Join Event"}
               </span>
             </button>
           </div>

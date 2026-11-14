@@ -1,9 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/app/providers/Providers";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import toast from "react-hot-toast";
@@ -22,7 +21,8 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, logoutUser } = useApp();
+  const router = useRouter();
+  const { user } = useApp();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -38,12 +38,15 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    await signOut();
-    logoutUser();
+    const { error } = await signOut();
+    if (error) {
+      toast.error(error.message || "Unable to log out.");
+      return;
+    }
     setDropdownOpen(false);
     setMobileMenuOpen(false);
     toast.success("Logged out successfully!");
-    window.location.href = "/login"; // পেজ রিফ্রেশ করে লগইন পেজে পাঠিয়ে দেবে
+    router.push("/login");
   };
 
   return (

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,7 +9,7 @@ import { FiUser, FiImage, FiMail, FiSave } from "react-icons/fi";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, loginUser, authLoading } = useApp();
+  const { user, authLoading } = useApp();
   const [name, setName] = useState("");
   const [photoURL, setPhotoURL] = useState("");
   const [updating, setUpdating] = useState(false);
@@ -39,24 +38,18 @@ export default function ProfilePage() {
 
     setUpdating(true);
     try {
-      // ১. BetterAuth-এ প্রোফাইল আপডেট (Google Login-এর জন্য)
-      await authClient.updateUser({
+      const { error } = await authClient.updateUser({
         name: name.trim(),
         image: photoURL.trim(),
       });
 
-      // ২. লোকাল স্টোরেজ আপডেট (Email Login-এর জন্য)
-      const updatedUser = {
-        ...user,
-        name: name.trim(),
-        photoURL: photoURL.trim(),
-        image: photoURL.trim(), // BetterAuth সিঙ্ক
-      };
-      loginUser(updatedUser);
+      if (error) {
+        toast.error(error.message || "Failed to update profile!");
+        return;
+      }
 
       toast.success("Profile updated successfully!");
 
-      // BetterAuth-এর সেশন পেজে রেন্ডার করার জন্য রিলোড
       setTimeout(() => {
         window.location.reload();
       }, 800);

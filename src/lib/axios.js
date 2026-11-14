@@ -1,5 +1,5 @@
 import axios from "axios";
-import { initialEventsData } from "@/components/home/RecentEvents";
+import { getTokenFromClient } from "@/lib/auth-client";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -9,10 +9,16 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-// JWT Token ইন্টারসেপ্টর (প্রোটেক্টেড রাউটের জন্য)
-apiClient.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("edutech-token");
+apiClient.interceptors.request.use(async (config) => {
+  const method = config.method?.toLowerCase();
+  const url = config.url || "";
+  const requiresAuth =
+    url === "/events/mine" ||
+    url.startsWith("/joined-events") ||
+    (method !== "get" && url.startsWith("/events"));
+
+  if (requiresAuth && typeof window !== "undefined") {
+    const token = await getTokenFromClient();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -20,42 +26,44 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-const EVENTS_KEY = "edutech_events_db";
-const JOINED_KEY = "edutech_joined_db";
-
-export function getStoredEvents() {
-  if (typeof window === "undefined") return initialEventsData;
-  const saved = localStorage.getItem(EVENTS_KEY);
-  if (!saved) {
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(initialEventsData));
-    return initialEventsData;
-  }
-  try {
-    return JSON.parse(saved);
-  } catch {
-    return initialEventsData;
-  }
+export async function getEvents(limit) {
+  const { data } = await apiClient.get("/events", {
+    params: limit ? { limit } : undefined,
+  });
+  return data;
 }
 
-export function saveStoredEvents(events) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
-  }
+export async function getOwnedEvents() {
+  const { data } = await apiClient.get("/events/mine");
+  return data;
 }
 
-export function getStoredJoinedEvents() {
-  if (typeof window === "undefined") return [];
-  const saved = localStorage.getItem(JOINED_KEY);
-  if (!saved) return [];
-  try {
-    return JSON.parse(saved);
-  } catch {
-    return [];
-  }
+export async function getEvent(id) {
+  const { data } = await apiClient.get(`/events/${id}`);
+  return data;
 }
 
-export function saveStoredJoinedEvents(joinedList) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(JOINED_KEY, JSON.stringify(joinedList));
-  }
+export async function createEvent(event) {
+  const { data } = await apiClient.post("/events", event);
+  return data;
+}
+
+export async function updateEvent(id, event) {
+  const { data } = await apiClient.put(`/events/${id}`, event);
+  return data;
+}
+
+export async function deleteEvent(id) {
+  const { data } = await apiClient.delete(`/events/${id}`);
+  return data;
+}
+
+export async function joinEvent(event) {
+  const { data } = await apiClient.post("/joined-events", event);
+  return data;
+}
+
+export async function getJoinedEvents() {
+  const { data } = await apiClient.get("/joined-events");
+  return data;
 }

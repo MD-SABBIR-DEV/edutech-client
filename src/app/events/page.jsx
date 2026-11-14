@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import EventCard from "@/components/events/EventCard";
-import { getStoredEvents } from "@/lib/axios";
-import { FiSearch, FiFilter } from "react-icons/fi";
+import { getEvents } from "@/lib/axios";
+import {
+  FiSearch,
+  FiFilter,
+  FiRefreshCw,
+  FiArrowRight,
+} from "react-icons/fi";
 
 const EVENT_TYPES = [
   "All",
@@ -16,25 +22,37 @@ const EVENT_TYPES = [
 
 export default function UpcomingEventsPage() {
   const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const allEvents = getStoredEvents();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    let active = true;
+    setLoading(true);
+    setError("");
 
-      // শুধুমাত্র ভবিষ্যতের বা আজকের ইভেন্টগুলো রাখা হচ্ছে (Past date বাদ)
-      const upcomingOnly = allEvents
-        .filter((ev) => new Date(ev.eventDate) >= today)
-        .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+    getEvents()
+      .then((upcomingEvents) => {
+        if (active) setEvents(upcomingEvents);
+      })
+      .catch((requestError) => {
+        if (active) {
+          setError(
+            requestError.response?.data?.error ||
+              "The events service is unavailable. Start the API server, then try again.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-      setEvents(upcomingOnly);
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [retryCount]);
 
   const filteredEvents = events.filter((ev) => {
     const matchesType = selectedType === "All" || ev.eventType === selectedType;
@@ -96,7 +114,43 @@ export default function UpcomingEventsPage() {
       </div>
 
       {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center text-slate-500 dark:text-slate-400">
+          Loading upcoming events...
+        </div>
+      ) : error ? (
+        <div
+          role="alert"
+          className="flex flex-col items-center gap-4 rounded-3xl border border-rose-500/20 bg-white/50 py-20 text-center dark:bg-[#0d131f]/40"
+        >
+          <p className="text-sm text-rose-600 dark:text-rose-300">{error}</p>
+          <button
+            type="button"
+            onClick={() => setRetryCount((count) => count + 1)}
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-700 transition-colors hover:bg-cyan-500/20 dark:text-[#00f2fe]"
+          >
+            <FiRefreshCw className="h-4 w-4" />
+            Try again
+          </button>
+        </div>
+      ) : events.length === 0 ? (
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white/50 px-6 py-16 text-center dark:border-slate-800 dark:bg-[#0d131f]/40">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+            No upcoming events yet
+          </h2>
+          <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
+            Be the first to organize a community initiative. Your event will
+            appear here as soon as it is published.
+          </p>
+          <Link
+            href="/create-event"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00f2fe] to-[#4facfe] px-5 py-3 text-sm font-semibold text-slate-950 transition-opacity hover:opacity-90"
+          >
+            Create an Event
+            <FiArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : filteredEvents.length === 0 ? (
         <div className="text-center py-20 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#0d131f]/40">
           <p className="text-lg font-bold text-slate-800 dark:text-white">
             No matching upcoming events found
